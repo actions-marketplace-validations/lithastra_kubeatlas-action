@@ -1,0 +1,7 @@
+# Smoke-test artifacts
+artifacts/
+*.svg
+
+# Editor noise
+.DS_Store
+*~

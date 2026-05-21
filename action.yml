@@ -1,0 +1,99 @@
+name: KubeAtlas
+description: >-
+  Visualise the KubeAtlas dependency graph for a Kubernetes cluster
+  inside a GitHub Actions workflow. Downloads the kubectl-atlas
+  plugin, renders the graph against the kubeconfig you provide, and
+  writes the SVG to disk so a later step can upload it as an
+  artifact or post it as a PR comment.
+
+branding:
+  icon: git-branch
+  color: blue
+
+inputs:
+  version:
+    description: >-
+      kubectl-atlas release to install (e.g. "v1.2.0"). "latest"
+      resolves the latest non-prerelease tag from the
+      lithastra/kubeatlas releases endpoint.
+    required: false
+    default: latest
+  scope:
+    description: >-
+      What to render. One of:
+        cluster                       — the whole cluster view (default)
+        namespace:<name>              — a single namespace
+        <kind>:<namespace>:<name>     — a single resource
+      Cluster-scoped resources use "_" for the namespace segment.
+    required: false
+    default: cluster
+  kubeconfig:
+    description: >-
+      Path to the kubeconfig file. Empty falls back to the
+      KUBECONFIG environment variable; if that is empty too,
+      kubectl's default discovery applies.
+    required: false
+    default: ''
+  kube-context:
+    description: >-
+      kubeconfig context to target. Empty uses the file's
+      current-context.
+    required: false
+    default: ''
+  output:
+    description: >-
+      Path to write the rendered SVG. Created (and parent dirs) if
+      it does not exist.
+    required: false
+    default: kubeatlas.svg
+  upload-artifact:
+    description: >-
+      When "true", upload the rendered SVG as a workflow artifact
+      named "kubeatlas-graph". The artifact is downloadable from the
+      workflow run summary.
+    required: false
+    default: 'true'
+
+outputs:
+  svg-path:
+    description: Absolute path to the rendered SVG.
+    value: ${{ steps.render.outputs.svg-path }}
+  resolved-version:
+    description: The kubectl-atlas version that ended up installed.
+    value: ${{ steps.install.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install kubectl-atlas
+      id: install
+      shell: bash
+      run: ${{ github.action_path }}/scripts/install.sh
+      env:
+        KUBEATLAS_ACTION_VERSION: ${{ inputs.version }}
+
+    - name: Install graphviz
+      shell: bash
+      run: |
+        if ! command -v dot >/dev/null; then
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends graphviz
+        fi
+
+    - name: Render KubeAtlas graph
+      id: render
+      shell: bash
+      run: ${{ github.action_path }}/scripts/render.sh
+      env:
+        KUBEATLAS_ACTION_SCOPE: ${{ inputs.scope }}
+        KUBEATLAS_ACTION_KUBECONFIG: ${{ inputs.kubeconfig }}
+        KUBEATLAS_ACTION_CONTEXT: ${{ inputs.kube-context }}
+        KUBEATLAS_ACTION_OUTPUT: ${{ inputs.output }}
+
+    - name: Upload graph artifact
+      if: inputs.upload-artifact == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: kubeatlas-graph
+        path: ${{ steps.render.outputs.svg-path }}
+        if-no-files-found: error

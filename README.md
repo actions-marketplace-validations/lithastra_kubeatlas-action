@@ -1,0 +1,139 @@
+# KubeAtlas GitHub Action
+
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue)](./LICENSE)
+
+Render a [KubeAtlas](https://github.com/lithastra/kubeatlas) dependency
+graph from a GitHub Actions workflow.
+
+This action downloads the [`kubectl-atlas`](https://github.com/lithastra/kubeatlas/tree/main/cmd/kubectl-atlas)
+plugin, points it at the kubeconfig you provide, and writes the
+rendered SVG to disk. A later step can upload it as an artifact,
+attach it to a release, post it as a PR comment, or anything else
+your workflow does with files.
+
+KubeAtlas is read-only — the action never modifies cluster state.
+
+## Quick start
+
+```yaml
+name: Render cluster topology
+on: [push]
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: azure/setup-kubectl@v4
+      - uses: azure/k8s-set-context@v4
+        with:
+          kubeconfig: ${{ secrets.KUBECONFIG }}
+      - uses: lithastra/kubeatlas-action@v1
+        with:
+          scope: cluster
+```
+
+The cluster's dependency graph lands in `kubeatlas.svg` in the
+workspace and is uploaded as the `kubeatlas-graph` artifact.
+
+## Inputs
+
+| Input | Default | Description |
+|---|---|---|
+| `version` | `latest` | `kubectl-atlas` release tag, or `latest` to resolve the newest release. |
+| `scope` | `cluster` | What to render. `cluster`, `namespace:<name>`, or `<kind>:<namespace>:<name>`. Use `_` for the namespace of cluster-scoped resources. |
+| `kubeconfig` | `` (env) | Path to a kubeconfig file. Empty falls back to `$KUBECONFIG`, then to kubectl's default discovery. |
+| `kube-context` | `` | kubeconfig context to target. Empty uses the file's `current-context`. |
+| `output` | `kubeatlas.svg` | Where to write the rendered SVG. Parent directories are created. |
+| `upload-artifact` | `true` | Upload the SVG as the `kubeatlas-graph` workflow artifact. |
+
+## Outputs
+
+| Output | Description |
+|---|---|
+| `svg-path` | Absolute path of the rendered SVG. |
+| `resolved-version` | The `kubectl-atlas` tag that ended up installed. |
+
+## Recipes
+
+### Render a namespace and post it as a PR comment
+
+```yaml
+jobs:
+  diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: azure/k8s-set-context@v4
+        with:
+          kubeconfig: ${{ secrets.KUBECONFIG }}
+
+      - uses: lithastra/kubeatlas-action@v1
+        id: render
+        with:
+          scope: namespace:petclinic
+          upload-artifact: 'false'
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const svg = fs.readFileSync('${{ steps.render.outputs.svg-path }}', 'utf8');
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `<details><summary>KubeAtlas: petclinic topology</summary>\n\n${svg}\n\n</details>`,
+            });
+```
+
+### Render a single resource
+
+```yaml
+- uses: lithastra/kubeatlas-action@v1
+  with:
+    scope: Deployment:petclinic:api
+```
+
+### Pin to a specific KubeAtlas release
+
+```yaml
+- uses: lithastra/kubeatlas-action@v1
+  with:
+    version: v1.3.0
+```
+
+## Requirements
+
+- A Linux `runs-on` (the action installs `graphviz` via `apt-get`).
+- Network egress to `github.com` and `objects.githubusercontent.com`
+  to fetch the `kubectl-atlas` release archive.
+- A reachable Kubernetes API server. The action does not stand up a
+  cluster for you — use [`helm/kind-action`](https://github.com/helm/kind-action)
+  or [`azure/k8s-set-context`](https://github.com/Azure/k8s-set-context)
+  to prepare one first.
+
+## Versioning
+
+Major-version moving tags (`@v1`) and exact tags (`@v1.0.0`) are
+both supported. The major-version tag advances on every release in
+the same major line; exact tags are immutable.
+
+The action's release cadence is independent of KubeAtlas itself.
+
+## Roadmap
+
+- **Dependency diff vs. base branch.** A future release will run
+  the action twice (once for the PR ref, once for `base`) and
+  compute a markdown diff of the dependency graph between them. The
+  building blocks (the offline `kubectl atlas` render, the
+  `/api/v1/snapshots/diff` endpoint) are already shipped in
+  KubeAtlas v1.3; the action wires them together.
+- **Federation-aware rendering.** When the action is run against
+  KubeAtlas v1.3+ with federation enabled, the scope input will
+  accept `federation:<cluster1,cluster2>` to render a merged view.
+
+Track progress at [github.com/lithastra/kubeatlas-action/issues](https://github.com/lithastra/kubeatlas-action/issues).
+
+## License
+
+[Apache 2.0](./LICENSE).

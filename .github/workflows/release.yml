@@ -1,0 +1,41 @@
+name: Release
+
+# When a vX.Y.Z tag is pushed, advance the matching vX major-version
+# moving tag so users pinning @v1 always get the latest v1.* release.
+# The exact tag (the trigger) stays immutable.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  move-major:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve major version
+        id: ver
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          tag="${REF#refs/tags/}"
+          major="${tag%%.*}"
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+          echo "major=${major}" >> "${GITHUB_OUTPUT}"
+
+      - name: Move major tag
+        env:
+          MAJOR: ${{ steps.ver.outputs.major }}
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git tag -f "${MAJOR}" "${TAG}"
+          git push -f origin "${MAJOR}"

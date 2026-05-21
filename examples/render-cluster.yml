@@ -1,0 +1,21 @@
+name: Render cluster topology
+
+# Minimal example: render the whole-cluster KubeAtlas graph on every
+# push to main and upload it as a workflow artifact. The kubeconfig
+# is supplied via a repository secret named KUBECONFIG (its value is
+# the entire kubeconfig YAML, base64-decoded by k8s-set-context).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: azure/setup-kubectl@v4
+      - uses: azure/k8s-set-context@v4
+        with:
+          kubeconfig: ${{ secrets.KUBECONFIG }}
+      - uses: lithastra/kubeatlas-action@v1

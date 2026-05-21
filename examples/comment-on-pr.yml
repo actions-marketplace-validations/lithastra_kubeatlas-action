@@ -1,0 +1,41 @@
+name: Post topology comment on PR
+
+# On every pull request, render the petclinic namespace topology
+# from a long-running staging cluster and post it as an inline PR
+# comment so reviewers can see the dependency graph the change
+# would land into.
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  topology-comment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: azure/setup-kubectl@v4
+      - uses: azure/k8s-set-context@v4
+        with:
+          kubeconfig: ${{ secrets.STAGING_KUBECONFIG }}
+
+      - uses: lithastra/kubeatlas-action@v1
+        id: render
+        with:
+          scope: namespace:petclinic
+          upload-artifact: 'false'
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const svg = fs.readFileSync('${{ steps.render.outputs.svg-path }}', 'utf8');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `<details><summary>KubeAtlas: petclinic topology (staging)</summary>\n\n${svg}\n\n</details>`,
+            });
