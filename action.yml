@@ -1,10 +1,5 @@
-name: KubeAtlas
-description: >-
-  Visualise the KubeAtlas dependency graph for a Kubernetes cluster
-  inside a GitHub Actions workflow. Downloads the kubectl-atlas
-  plugin, renders the graph against the kubeconfig you provide, and
-  writes the SVG to disk so a later step can upload it as an
-  artifact or post it as a PR comment.
+name: KubeAtlas Dependency Graph
+description: Render a Kubernetes resource dependency graph with KubeAtlas and write the SVG to disk for upload or PR comment.
 
 branding:
   icon: git-branch
