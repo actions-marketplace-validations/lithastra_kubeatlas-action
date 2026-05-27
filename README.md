@@ -1,5 +1,6 @@
 # KubeAtlas GitHub Action
 
+[![Marketplace](https://img.shields.io/badge/marketplace-KubeAtlas%20Dependency%20Graph-blue?logo=github)](https://github.com/marketplace/actions/kubeatlas-dependency-graph)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](./LICENSE)
 
 Render a [KubeAtlas](https://github.com/lithastra/kubeatlas) dependency
