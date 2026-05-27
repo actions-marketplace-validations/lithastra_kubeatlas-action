@@ -6,10 +6,10 @@ its own line, independently of KubeAtlas itself. Users pin the
 moving major-version tag (`@v1`) for automatic minor/patch updates
 or an exact tag (`@v1.0.0`) for byte-identical behaviour.
 
-## [v0.1.0] — initial release
+## [v1.0.0] — initial release
 
-First publishable version. The action installs `kubectl-atlas`
-from a KubeAtlas release, renders a dependency graph against the
+First stable release. The action installs `kubectl-atlas` from a
+KubeAtlas release, renders a dependency graph against the
 caller-provided kubeconfig, and writes the result to disk.
 
 ### Added
@@ -29,4 +29,4 @@ caller-provided kubeconfig, and writes the result to disk.
   shellcheck over the bash scripts, and an end-to-end smoke test
   against a `kind` cluster with a one-Deployment fixture.
 
-[v0.1.0]: https://github.com/lithastra/kubeatlas-action/releases/tag/v0.1.0
+[v1.0.0]: https://github.com/lithastra/kubeatlas-action/releases/tag/v1.0.0
