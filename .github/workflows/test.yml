@@ -53,7 +53,10 @@ jobs:
       - name: Verify the SVG was produced
         run: |
           test -s artifacts/demo.svg
-          head -c 200 artifacts/demo.svg | grep -q '<svg'
+          # Match anywhere in the file — graphviz prepends an XML
+          # declaration + DOCTYPE + Generated-by comment before the
+          # <svg> tag, so a fixed-byte head was too tight.
+          grep -q '<svg' artifacts/demo.svg
 
       - name: Upload SVG for inspection
         if: always()
