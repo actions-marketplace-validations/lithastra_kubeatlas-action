@@ -1,0 +1,16 @@
+{
+  "kubeAtlasVersion": "v1.4.0",
+  "scope": { "allNamespaces": true },
+  "policyViolations": [
+    {
+      "policy": "/ClusterPolicy/disallow-latest-tag",
+      "resource": "petclinic/Deployment/api",
+      "message": ""
+    },
+    {
+      "policy": "/K8sRequiredLabels/must-have-owner",
+      "resource": "petclinic/Deployment/api",
+      "message": "you must provide labels: {\"owner\"}"
+    }
+  ]
+}

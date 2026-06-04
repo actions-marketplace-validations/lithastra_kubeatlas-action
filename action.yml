@@ -48,6 +48,15 @@ inputs:
       workflow run summary.
     required: false
     default: 'true'
+  policy-report:
+    description: >-
+      When "true", also run `kubeatlas diagnose` over the same scope
+      and write a Markdown summary of the policy violations (Gatekeeper
+      Constraints / Kyverno policies) KubeAtlas observes. The summary
+      path is exposed as the "policy-report-path" output so a workflow
+      can append it to a PR comment. Requires KubeAtlas v1.4 or newer.
+    required: false
+    default: 'false'
 
 outputs:
   svg-path:
@@ -56,6 +65,11 @@ outputs:
   resolved-version:
     description: The kubectl-atlas version that ended up installed.
     value: ${{ steps.install.outputs.version }}
+  policy-report-path:
+    description: >-
+      Absolute path to the Markdown policy-violation summary, or empty
+      when policy-report is false.
+    value: ${{ steps.policy.outputs.policy-report-path }}
 
 runs:
   using: composite
@@ -84,6 +98,18 @@ runs:
         KUBEATLAS_ACTION_KUBECONFIG: ${{ inputs.kubeconfig }}
         KUBEATLAS_ACTION_CONTEXT: ${{ inputs.kube-context }}
         KUBEATLAS_ACTION_OUTPUT: ${{ inputs.output }}
+
+    - name: Policy report
+      id: policy
+      if: inputs.policy-report == 'true'
+      shell: bash
+      run: ${{ github.action_path }}/scripts/policy-report.sh
+      env:
+        KUBEATLAS_ACTION_SCOPE: ${{ inputs.scope }}
+        KUBEATLAS_ACTION_KUBECONFIG: ${{ inputs.kubeconfig }}
+        KUBEATLAS_ACTION_CONTEXT: ${{ inputs.kube-context }}
+        KUBEATLAS_ACTION_RESOLVED_VERSION: ${{ steps.install.outputs.version }}
+        KUBEATLAS_POLICY_REPORT_OUTPUT: policy-report.md
 
     - name: Upload graph artifact
       if: inputs.upload-artifact == 'true'

@@ -6,6 +6,24 @@ its own line, independently of KubeAtlas itself. Users pin the
 moving major-version tag (`@v1`) for automatic minor/patch updates
 or an exact tag (`@v1.0.0`) for byte-identical behaviour.
 
+## [Unreleased]
+
+### Added
+
+- `policy-report` input (default `false`). When enabled, the action
+  also runs `kubeatlas diagnose` over the same scope and writes a
+  Markdown summary of the policy violations (Gatekeeper Constraints /
+  Kyverno policies) KubeAtlas observes, exposing it as the new
+  `policy-report-path` output for a workflow to append to a PR
+  comment. Requires KubeAtlas v1.4 or newer.
+- `scripts/policy-report.sh` — fetches and verifies the `kubeatlas`
+  CLI on demand, runs `diagnose --format json`, and renders the
+  normalised `policyViolations` list as a Markdown table.
+- `examples/policy-report-comment.yml` — render a namespace topology
+  and its policy report into one PR comment.
+- CI: a fixture-driven render check for the policy report, and the
+  `kind` smoke test now exercises the live `policy-report` path.
+
 ## [v1.0.0] — initial release
 
 First stable release. The action installs `kubectl-atlas` from a

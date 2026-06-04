@@ -1,0 +1,61 @@
+name: Post policy report on PR
+
+# On every pull request, render the petclinic namespace topology from a
+# long-running staging cluster AND a summary of the policy violations
+# KubeAtlas observes there (Gatekeeper Constraints / Kyverno policies),
+# then post both as a single PR comment so reviewers see the dependency
+# graph and the policy posture the change would land into.
+#
+# policy-report requires KubeAtlas v1.4 or newer.
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  topology-and-policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: azure/setup-kubectl@v4
+      - uses: azure/k8s-set-context@v4
+        with:
+          kubeconfig: ${{ secrets.STAGING_KUBECONFIG }}
+
+      - uses: lithastra/kubeatlas-action@v1
+        id: render
+        with:
+          version: latest
+          scope: namespace:petclinic
+          upload-artifact: 'false'
+          policy-report: 'true'
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        env:
+          SVG_PATH: ${{ steps.render.outputs.svg-path }}
+          POLICY_PATH: ${{ steps.render.outputs.policy-report-path }}
+        with:
+          script: |
+            const fs = require('fs');
+            const svg = fs.readFileSync(process.env.SVG_PATH, 'utf8');
+            const policy = process.env.POLICY_PATH
+              ? fs.readFileSync(process.env.POLICY_PATH, 'utf8')
+              : '';
+            const body = [
+              '<details><summary>KubeAtlas: petclinic topology (staging)</summary>',
+              '',
+              svg,
+              '',
+              '</details>',
+              '',
+              policy,
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });

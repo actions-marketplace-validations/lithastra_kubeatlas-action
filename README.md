@@ -45,6 +45,7 @@ workspace and is uploaded as the `kubeatlas-graph` artifact.
 | `kube-context` | `` | kubeconfig context to target. Empty uses the file's `current-context`. |
 | `output` | `kubeatlas.svg` | Where to write the rendered SVG. Parent directories are created. |
 | `upload-artifact` | `true` | Upload the SVG as the `kubeatlas-graph` workflow artifact. |
+| `policy-report` | `false` | Also run `kubeatlas diagnose` over the same scope and write a Markdown summary of the policy violations (Gatekeeper / Kyverno) KubeAtlas observes. Requires KubeAtlas v1.4+. |
 
 ## Outputs
 
@@ -52,6 +53,7 @@ workspace and is uploaded as the `kubeatlas-graph` artifact.
 |---|---|
 | `svg-path` | Absolute path of the rendered SVG. |
 | `resolved-version` | The `kubectl-atlas` tag that ended up installed. |
+| `policy-report-path` | Absolute path of the Markdown policy-violation summary, or empty when `policy-report` is `false`. |
 
 ## Recipes
 
@@ -86,6 +88,44 @@ jobs:
               body: `<details><summary>KubeAtlas: petclinic topology</summary>\n\n${svg}\n\n</details>`,
             });
 ```
+
+### Add a policy-violation summary to the PR comment
+
+With `policy-report: true` the action also runs `kubeatlas diagnose`
+over the same scope and writes a Markdown table of the Gatekeeper
+Constraint / Kyverno policy violations it observes. Read the path from
+the `policy-report-path` output and append it to your comment body.
+Requires KubeAtlas v1.4 or newer.
+
+```yaml
+- uses: lithastra/kubeatlas-action@v1
+  id: render
+  with:
+    scope: namespace:petclinic
+    upload-artifact: 'false'
+    policy-report: 'true'
+
+- name: Comment on PR
+  uses: actions/github-script@v7
+  env:
+    SVG_PATH: ${{ steps.render.outputs.svg-path }}
+    POLICY_PATH: ${{ steps.render.outputs.policy-report-path }}
+  with:
+    script: |
+      const fs = require('fs');
+      const svg = fs.readFileSync(process.env.SVG_PATH, 'utf8');
+      const policy = process.env.POLICY_PATH
+        ? fs.readFileSync(process.env.POLICY_PATH, 'utf8')
+        : '';
+      await github.rest.issues.createComment({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        issue_number: context.issue.number,
+        body: `<details><summary>KubeAtlas: petclinic topology</summary>\n\n${svg}\n\n</details>\n\n${policy}`,
+      });
+```
+
+A full workflow is in [`examples/policy-report-comment.yml`](./examples/policy-report-comment.yml).
 
 ### Render a single resource
 

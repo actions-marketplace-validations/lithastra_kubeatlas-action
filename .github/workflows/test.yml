@@ -27,6 +27,18 @@ jobs:
           sudo apt-get install -y shellcheck
           shellcheck scripts/*.sh
 
+      - name: Policy report renders a violation line (fixture)
+        env:
+          KUBEATLAS_POLICY_REPORT_JSON: test/fixtures/diagnose-violations.json
+          KUBEATLAS_ACTION_SCOPE: cluster
+          KUBEATLAS_POLICY_REPORT_OUTPUT: policy-report.md
+        run: |
+          scripts/policy-report.sh
+          cat policy-report.md
+          # Two violations from the fixture must render as table rows.
+          grep -q '/K8sRequiredLabels/must-have-owner | petclinic/Deployment/api' policy-report.md
+          grep -q '2 policy violation' policy-report.md
+
   smoke:
     name: Smoke test against kind
     runs-on: ubuntu-latest
@@ -44,11 +56,13 @@ jobs:
           kubectl rollout status deploy/hello -n demo --timeout=120s
 
       - name: Run the action against the kind cluster
+        id: kubeatlas
         uses: ./
         with:
           version: latest
           scope: namespace:demo
           output: artifacts/demo.svg
+          policy-report: 'true'
 
       - name: Verify the SVG was produced
         run: |
@@ -57,6 +71,19 @@ jobs:
           # declaration + DOCTYPE + Generated-by comment before the
           # <svg> tag, so a fixed-byte head was too tight.
           grep -q '<svg' artifacts/demo.svg
+
+      - name: Verify the policy report was produced
+        env:
+          REPORT: ${{ steps.kubeatlas.outputs.policy-report-path }}
+        run: |
+          # The live path proves the wiring end to end: it downloads and
+          # verifies the kubeatlas CLI, runs `diagnose` against the kind
+          # cluster, and renders Markdown. kind has no policy engine, so
+          # the body is "no violations" (or, on a pre-v1.4 CLI, the
+          # version note) — either way the file must exist and be headed.
+          test -n "${REPORT}"
+          test -s "${REPORT}"
+          grep -q 'KubeAtlas policy report' "${REPORT}"
 
       - name: Upload SVG for inspection
         if: always()
